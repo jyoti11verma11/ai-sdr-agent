@@ -125,3 +125,61 @@ Every LLM call persisted to `ai_decisions` collection with: id, owner_id, lead_i
 
 ### Tests
 79/79 backend tests passing (100%). Phase 3 added 33 new tests covering async pipeline, prompt versioning, per-piece regeneration, AIDecision persistence, analytics AI shape.
+
+## Phase 4 delivered (2026-07-14) — Production-grade AI SDR platform
+
+### Team & RBAC
+- `Workspace` + `Invite` + user roles (`admin`, `sales_manager`, `sdr`, `viewer`). Signup creates workspace or joins via invite token.
+- `require_role(*roles)` FastAPI dep gates settings, integrations, playground, audit, invites, role changes.
+- JWT now carries `wid + role`.
+
+### Lead assignment engine
+- `AssignmentEngine` with priority-sorted rules (region / industry / min-max score) → user OR round-robin fallback.
+- Auto-assignment happens inside the async pipeline. Manual override via `PATCH /leads/{id}/assign`. Every assignment writes an activity + notification + audit log with a human `assignment_reason`.
+
+### Kanban pipeline
+- 7 fixed stages: new → qualified → demo_scheduled → proposal_sent → negotiation → closed_won / closed_lost.
+- `PATCH /leads/{id}/stage` appends `StageChange` history with by_user_id.
+- `GET /leads/pipeline` returns `{stages, by_stage}` — powers frontend Kanban with HTML5 native drag-drop.
+
+### Notes / comments / @mentions
+- `POST /leads/{id}/notes` — `@user@company.com` mentions parsed → mention IDs stored + `mention` notification fired.
+
+### Notifications (polling)
+- `GET /notifications` returns `{items, unread}`. `POST /notifications/{id}/read` and `read-all`. Bell popover polls every 15s.
+- Kinds: `lead_assigned`, `qualification_done`, `email_sent`, `meeting_scheduled`, `mention`, `webhook_failed`, `slack_failed`.
+
+### Audit logs
+- `AuditService` writes on every mutating action. `GET /audit` + `GET /audit/export.csv`.
+
+### Email via Resend
+- `EmailService` (Resend + mock fallback). Draft / send-now / schedule via `POST /leads/{id}/emails`.
+- Delivery tracking via public `POST /webhooks/resend` — `sent → delivered → opened → clicked` transitions.
+
+### Meetings
+- `POST /leads/{id}/meetings/propose` — AI-shaped 3 slot recommendation (urgency-aware).
+- `POST /leads/{id}/meetings` — one-click Google Calendar template URL + auto-transitions stage to `demo_scheduled`.
+- `GET /leads/{id}/meetings/{id}/ics` — downloadable .ics file.
+
+### Advanced analytics
+`GET /analytics/advanced` — sales funnel, pipeline value USD, revenue forecast, avg cycle days, source performance, stage conversion rates, win rate, top SDRs leaderboard, AI recommendation accuracy.
+
+### Frontend (design preserved, additive only)
+- New pages: **Pipeline** (drag-drop Kanban), **Team** (invite + role manager), **Audit logs** (filterable table + CSV export).
+- `NotificationsPopover` bell in top bar with unread badge.
+- LeadDrawer extended: assignment picker with reason, quick-actions (send email + book meeting), AI-slot dialog, email compose (draft/send), email history with status pills, meeting list with GCal link, notes composer + comments.
+- Role-based nav: SDRs don't see Settings / Playground / Audit.
+
+### Ops
+- `docker-compose.yml` (mongo + backend + frontend), backend + frontend Dockerfiles, `.env.example`, `DEPLOYMENT.md`.
+- API docs auto-served at `/docs`, `/redoc`, `/openapi.json`.
+
+### Tests
+- **112/112 backend tests pass** (79 P1-P3 + 33 P4). ~200s wall clock. `pytest tests/ -v` from `/app/backend`.
+
+### Deferred / future-hardening (from test agent report)
+- Resend webhook HMAC signature verification
+- Deterministic ordering of `_members()` for RR
+- Reject demoting the last admin
+- JSON-encode `old_value`/`new_value` columns in audit CSV
+- Split `server.py` into domain routers (~1070 lines now)
