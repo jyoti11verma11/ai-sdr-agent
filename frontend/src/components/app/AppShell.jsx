@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
-import { LayoutDashboard, Users, BarChart3, Settings as Cog, LogOut, Sparkles, Menu, X, ExternalLink } from "lucide-react";
+import { LayoutDashboard, Users, BarChart3, Settings as Cog, LogOut, Sparkles, Menu, X, ExternalLink, Beaker } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "@/components/app/ThemeToggle";
 
@@ -9,6 +9,7 @@ const nav = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
   { to: "/app/leads", label: "Leads", icon: Users, testId: "nav-leads" },
   { to: "/app/analytics", label: "Analytics", icon: BarChart3, testId: "nav-analytics" },
+  { to: "/app/playground", label: "AI Playground", icon: Beaker, testId: "nav-playground" },
   { to: "/app/settings", label: "Settings", icon: Cog, testId: "nav-settings" },
 ];
 

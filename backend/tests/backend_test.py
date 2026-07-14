@@ -23,6 +23,20 @@ if not BASE_URL:
                 break
 
 
+def _poll_until_qualified(session, headers, lead_id: str, timeout: float = 60.0):
+    """Phase 3: POST /api/leads is async — poll GET /api/leads/{id} until terminal."""
+    deadline = time.time() + timeout
+    last = None
+    while time.time() < deadline:
+        r = session.get(f"{BASE_URL}/api/leads/{lead_id}", headers=headers, timeout=15)
+        assert r.status_code == 200, r.text
+        last = r.json()
+        if last.get("processing_status") in ("qualified", "failed"):
+            return last
+        time.sleep(1.0)
+    return last
+
+
 # ---------------- Health ----------------
 class TestHealth:
     def test_root_health(self, api_client):
@@ -156,7 +170,9 @@ class TestLeads:
         r = api_client.post(f"{BASE_URL}/api/leads", json=payload,
                             headers=auth_headers, timeout=60)
         assert r.status_code == 200, f"Lead create failed: {r.status_code} {r.text}"
-        return r.json()
+        lead = r.json()
+        # Phase 3: async pipeline — poll until qualification+outreach populated
+        return _poll_until_qualified(api_client, auth_headers, lead["id"], timeout=60.0)
 
     def test_create_lead_qualification_and_email(self, created_lead):
         lead = created_lead
@@ -222,8 +238,14 @@ class TestLeads:
         assert r.status_code == 200, r.text
         data = r.json()
         assert data["name"] == "TEST Public Peter"
-        assert data.get("qualification", {}).get("score") is not None
-        assert data.get("generated_email", {}).get("subject")
+        # Phase 3: async — poll via demo user's auth
+        demo_login = api_client.post(f"{BASE_URL}/api/auth/login",
+                                      json={"email": "demo@sdr.ai", "password": "demo1234"})
+        headers = {"Authorization": f"Bearer {demo_login.json()['token']}",
+                   "Content-Type": "application/json"}
+        final = _poll_until_qualified(api_client, headers, data["id"], timeout=60.0)
+        assert final.get("qualification", {}).get("score") is not None
+        assert final.get("generated_email", {}).get("subject")
 
     def test_public_lead_unknown_owner_404(self, api_client):
         r = requests.post(

@@ -12,6 +12,7 @@ import Leads from "@/pages/Leads";
 import Analytics from "@/pages/Analytics";
 import Settings from "@/pages/Settings";
 import CaptureLead from "@/pages/CaptureLead";
+import Playground from "@/pages/Playground";
 import AppShell from "@/components/app/AppShell";
 
 function Protected({ children }) {
@@ -41,6 +42,7 @@ export default function App() {
               <Route path="/app" element={<Protected><Dashboard /></Protected>} />
               <Route path="/app/leads" element={<Protected><Leads /></Protected>} />
               <Route path="/app/analytics" element={<Protected><Analytics /></Protected>} />
+              <Route path="/app/playground" element={<Protected><Playground /></Protected>} />
               <Route path="/app/settings" element={<Protected><Settings /></Protected>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

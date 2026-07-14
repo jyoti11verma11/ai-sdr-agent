@@ -5,9 +5,10 @@ import {
   Line, CartesianGrid, PieChart, Pie, Cell,
 } from "recharts";
 import { motion } from "framer-motion";
-import { LineChart as LineIcon, PieChart as PieIcon, BarChart3, TrendingUp } from "lucide-react";
+import { LineChart as LineIcon, PieChart as PieIcon, BarChart3, TrendingUp, Brain, Target, Timer, Zap, Percent } from "lucide-react";
 import { SkeletonBlock } from "@/components/app/Skeletons";
 import EmptyState from "@/components/app/EmptyState";
+import { scoreColor } from "@/lib/utils";
 
 const CHART_COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))", "#EC4899", "#14B8A6", "#F97316"];
 
@@ -21,12 +22,14 @@ const tooltipStyle = {
 
 export default function Analytics() {
   const [s, setS] = useState(null);
+  const [ai, setAI] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const load = () => {
     setLoading(true); setError(null);
-    api.get("/analytics/summary").then((r) => setS(r.data))
+    Promise.all([api.get("/analytics/summary"), api.get("/analytics/ai")])
+      .then(([r, a]) => { setS(r.data); setAI(a.data); })
       .catch(() => setError("Couldn't load analytics"))
       .finally(() => setLoading(false));
   };
@@ -56,7 +59,81 @@ export default function Analytics() {
           description="Once you capture a few leads the analytics will populate automatically."
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+        <>
+          {/* AI Analytics (Phase 3) */}
+          {ai && (
+            <div className="mb-6 lg:mb-8" data-testid="ai-analytics-section">
+              <div className="flex items-center gap-2 mb-3">
+                <Brain className="h-4 w-4 text-primary" />
+                <div className="overline">AI performance</div>
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+                <AIMetric icon={<Zap className="h-3.5 w-3.5" />} label="Avg AI score" value={ai.avg_ai_score} tid="ai-avg-score" />
+                <AIMetric icon={<TrendingUp className="h-3.5 w-3.5" />} label="High-intent leads" value={ai.high_intent_leads} tid="ai-high-intent" />
+                <AIMetric icon={<Percent className="h-3.5 w-3.5" />} label="Qualification success" value={`${ai.qualification_success_rate}%`} sub={`${ai.qualification_success_count}/${ai.qualification_total}`} tid="ai-success-rate" />
+                <AIMetric icon={<Timer className="h-3.5 w-3.5" />} label="Avg processing" value={ai.avg_processing_ms ? `${(ai.avg_processing_ms/1000).toFixed(1)}s` : "—"} tid="ai-latency" />
+                <AIMetric icon={<Target className="h-3.5 w-3.5" />} label="ICP matches" value={ai.top_icp_matches.length} tid="ai-icp-count" />
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                <div className="rounded-xl border border-border bg-card p-6" data-testid="ai-top-icp">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <div className="overline">ICP Matches</div>
+                      <h3 className="font-display text-lg font-semibold mt-1 tracking-tight">Top fits by AI</h3>
+                    </div>
+                    <Target className="h-4 w-4 text-primary" />
+                  </div>
+                  {ai.top_icp_matches.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">No ICP matches yet.</div>
+                  ) : (
+                    <ul className="space-y-2">
+                      {ai.top_icp_matches.map((l) => (
+                        <li key={l.lead_id} className="flex items-start gap-3 rounded-md border border-border p-2.5">
+                          <span className={`score-badge border shrink-0 mt-0.5 ${scoreColor(l.score)}`}>{l.score}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-semibold truncate">{l.name} · <span className="font-normal text-muted-foreground">{l.company}</span></div>
+                            <div className="text-xs text-muted-foreground mt-0.5">{l.industry}</div>
+                            {l.reason && <div className="text-xs text-foreground/80 mt-1 line-clamp-2">{l.reason}</div>}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-border bg-card p-6" data-testid="ai-industry-dist">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <div className="overline">Distribution</div>
+                      <h3 className="font-display text-lg font-semibold mt-1 tracking-tight">Industries by AI</h3>
+                    </div>
+                    <PieIcon className="h-4 w-4 text-primary" />
+                  </div>
+                  {ai.industry_distribution.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">Not enough data.</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {ai.industry_distribution.map((r, i) => (
+                        <div key={r.industry}>
+                          <div className="flex items-center justify-between text-xs mb-0.5">
+                            <span className="text-foreground/90">{r.industry}</span>
+                            <span className="text-muted-foreground font-mono">{r.count} · {r.pct}%</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${r.pct}%`, background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Pipeline charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
           <ChartCard title="Leads over time" subtitle="Last 14 days" icon={<LineIcon className="h-4 w-4" />} testId="chart-timeline" loading={loading}>
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={s?.timeline || []} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
@@ -129,7 +206,21 @@ export default function Analytics() {
             </div>
           </ChartCard>
         </div>
+        </>
       )}
+    </div>
+  );
+}
+
+function AIMetric({ icon, label, value, sub, tid }) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4" data-testid={tid}>
+      <div className="flex items-center justify-between text-muted-foreground">
+        <span className="text-[10px] uppercase tracking-widest font-semibold">{label}</span>
+        <div className="h-6 w-6 rounded-md bg-primary/10 text-primary grid place-items-center">{icon}</div>
+      </div>
+      <div className="mt-2 font-display text-2xl font-bold tracking-tight">{value}</div>
+      {sub && <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">{sub}</div>}
     </div>
   );
 }

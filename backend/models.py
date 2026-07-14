@@ -5,12 +5,8 @@ from datetime import datetime, timezone
 import uuid
 
 
-def _uid() -> str:
-    return str(uuid.uuid4())
-
-
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
+def _uid() -> str: return str(uuid.uuid4())
+def _now() -> datetime: return datetime.now(timezone.utc)
 
 
 # ---------- Auth ----------
@@ -39,11 +35,11 @@ class AuthResponse(BaseModel):
 
 # ---------- Leads ----------
 LeadStatus = Literal["new", "qualifying", "qualified", "disqualified", "contacted", "converted"]
+ProcessingStatus = Literal["pending", "analyzing", "qualified", "failed"]
 
 
 class LeadCreate(BaseModel):
     model_config = ConfigDict(extra="ignore")
-
     name: str = Field(min_length=1, max_length=120)
     email: EmailStr
     company: str = Field(min_length=1, max_length=200)
@@ -57,15 +53,31 @@ class LeadCreate(BaseModel):
 class Qualification(BaseModel):
     industry: Optional[str] = None
     company_size: Optional[str] = None
+    business_type: Optional[str] = None
+    icp_match: Optional[bool] = None
+    icp_match_reasoning: Optional[str] = None
     buying_intent: Optional[str] = None
+    urgency: Optional[str] = None
+    decision_maker_probability: Optional[int] = None
     score: Optional[int] = None
+    score_explanation: Optional[str] = None
     qualification_summary: Optional[str] = None
     key_signals: List[str] = Field(default_factory=list)
     recommended_action: Optional[str] = None
-    next_step_reason: Optional[str] = None
+    action_reasoning: Optional[str] = None
+    next_step_reason: Optional[str] = None  # kept for backwards compat
+
+
+class Outreach(BaseModel):
+    subject: Optional[str] = None
+    first_email: Optional[str] = None
+    linkedin_message: Optional[str] = None
+    followup_email: Optional[str] = None
+    generated_at: Optional[datetime] = None
 
 
 class GeneratedEmail(BaseModel):
+    """Legacy — kept for backwards compat with older UI/tests."""
     subject: Optional[str] = None
     body: Optional[str] = None
     generated_at: Optional[datetime] = None
@@ -73,7 +85,7 @@ class GeneratedEmail(BaseModel):
 
 class Activity(BaseModel):
     id: str = Field(default_factory=_uid)
-    type: str  # "created" | "qualified" | "email_generated" | "hubspot_sync" | "slack_notified" | "n8n_triggered" | "status_change"
+    type: str
     message: str
     metadata: dict = Field(default_factory=dict)
     at: datetime = Field(default_factory=_now)
@@ -81,7 +93,6 @@ class Activity(BaseModel):
 
 class Lead(BaseModel):
     model_config = ConfigDict(extra="ignore")
-
     id: str = Field(default_factory=_uid)
     owner_id: str
     name: str
@@ -93,8 +104,10 @@ class Lead(BaseModel):
     message: Optional[str] = None
     source: str = "website"
     status: LeadStatus = "new"
+    processing_status: ProcessingStatus = "pending"
     qualification: Qualification = Field(default_factory=Qualification)
     generated_email: Optional[GeneratedEmail] = None
+    outreach: Optional[Outreach] = None
     activities: List[Activity] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
@@ -112,3 +125,42 @@ class IntegrationSettings(BaseModel):
     auto_sync_hubspot: bool = True
     auto_notify_slack: bool = True
     auto_trigger_n8n: bool = False
+
+
+# ---------- AI decisions ----------
+class AIDecision(BaseModel):
+    id: str = Field(default_factory=_uid)
+    owner_id: str
+    lead_id: Optional[str] = None
+    decision_type: str  # qualification | outreach | next_action | regenerate_email | regenerate_linkedin | regenerate_followup | test
+    prompt_name: str
+    prompt_version: int
+    model: str
+    input_summary: str
+    output: dict = Field(default_factory=dict)
+    reasoning: Optional[str] = None
+    score: Optional[int] = None
+    action: Optional[str] = None
+    latency_ms: Optional[int] = None
+    status: str = "success"  # success | error | fallback
+    error: Optional[str] = None
+    at: datetime = Field(default_factory=_now)
+
+
+# ---------- Prompts (for AI Playground) ----------
+class Prompt(BaseModel):
+    id: str = Field(default_factory=_uid)
+    owner_id: str
+    name: str  # "qualification" | "outreach"
+    template: str
+    version: int = 1
+    updated_at: datetime = Field(default_factory=_now)
+
+
+class PromptUpdate(BaseModel):
+    template: str
+
+
+class PromptTestInput(BaseModel):
+    lead: LeadCreate
+    qualification: Optional[Qualification] = None  # required for outreach

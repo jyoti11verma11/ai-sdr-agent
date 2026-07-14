@@ -1,0 +1,53 @@
+{
+  "summary": "Phase 3 (True AI SDR Agent) fully verified. Added 33 new tests in /app/backend/tests/test_phase3.py covering the background pipeline, versioned prompts, per-piece regeneration, AIDecision persistence, /leads/status-counts, and /analytics/ai. Also updated Phase 1+2 tests (backend_test.py + test_integrations.py) to POLL /api/leads/{id} after POST /api/leads (which is now async and returns in <1s). Full suite is 79/79 passing (100%) in ~127s wall clock. Verified end-to-end: (a) POST /api/leads returns in <3s with processing_status='pending' and qualification.score=None; (b) polling shows pending → analyzing → qualified within ~15-25s; (c) final qualification has ALL new fields (business_type, icp_match bool, icp_match_reasoning, urgency, decision_maker_probability int 0-100, score_explanation, action_reasoning); (d) recommended_action always within {'Book Demo','Call Immediately','Send Personalized Email','Add to Nurture Campaign','Reject Lead'}; (e) lead.outreach has subject+first_email+linkedin_message+followup_email (all non-empty strings); (f) legacy generated_email {subject,body} still populated for backward compat; (g) full integration activity chain (created→qualified→email_generated→hubspot_contact→hubspot_company→hubspot_deal→slack_notified→slack_high_priority when score>=85) preserved after background processing; (h) /leads/status-counts returns exactly {pending,analyzing,qualified,failed} as ints and reflects live counts; (i) /leads/{id}/decisions returns >=2 AIDecision rows (qualification+outreach) each with id/owner_id/lead_id/decision_type/prompt_name/prompt_version(int)/model='gpt-5.2'/input_summary/output(dict)/latency_ms(int>0)/status('success'|'fallback'|'error')/at; (j) /prompts returns exactly 2 items (qualification+outreach) both v1 with non-empty templates; /prompts/{name} 200; /prompts/invalidname 404; PUT bumps v1→v2 and template reflects on GET; reset bumps to v3 and restores default; (k) /prompts/qualification/test returns full qualification JSON and inserts an AIDecision (verified via analytics.total_ai_decisions delta); /prompts/outreach/test with supplied qualification returns all 4 outreach pieces; (l) regenerate with type=first_email|linkedin_message|followup_email touches ONLY the targeted field (other two remain byte-identical), records the correct decision_type (regenerate_email|regenerate_linkedin|regenerate_followup); type=all regenerates all three; type=invalid → 422; unqualified lead (score=None) → 400; unknown lead → 404; other-user's lead → 404; legacy /regenerate-email alias still regenerates first_email only; (m) /analytics/ai returns full shape with correct types and owner isolation (fresh user gets empty analytics); prompt_versions dict contains 'qualification' after any successful qualify call.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/prompts/outreach/test", "issue": "Spec says 'if qualification not supplied, backend runs qualification internally first, then outreach'. Actual implementation passes an empty {} to generate_outreach when qualification is missing (server.py:174-177 — `qual or {}`), it does NOT run qualification first. If a caller omits qualification the LLM will receive empty industry/intent/etc context. Consider running self.qualify() first when qualification is None."},
+      {"endpoint": "POST /api/leads/{id}/regenerate", "issue": "AIService.generate_outreach() always returns ALL 4 pieces (subject/first_email/linkedin_message/followup_email). Even when type=first_email or type=linkedin_message, the LLM generates all 4 but only 1 field is persisted. This wastes ~5s of LLM latency + tokens per single-piece regeneration. Consider a lighter prompt for single-piece regen."},
+      {"endpoint": "GET /api/leads/status-counts", "issue": "Legacy leads with processing_status=None are silently bucketed as 'qualified' (server.py:305-306: 'else: counts[qualified] += ...'). Documented in code as 'legacy leads' but the choice conflates real qualified leads with unprocessed legacy rows. Consider a 'legacy' or 'unknown' bucket."},
+      {"endpoint": "POST /api/leads background pipeline", "issue": "_run_pipeline runs sequentially: qualify (~5-6s) → outreach (~5-6s) → integrations. Total 12-15s. Consider gather() for qualify+outreach when they don't depend on each other's output (they do — outreach needs qualification — so this only helps if you accept parallel speculative generation)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase3.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_integrations.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/phase3_results.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(minor) Decide whether /api/prompts/outreach/test should internally run qualification when it is missing — spec says yes, code says no. Either update spec or update endpoint.",
+    "(minor) Consider a lightweight single-piece regeneration prompt so type=first_email doesn't burn LLM tokens generating linkedin+followup that will be discarded.",
+    "(minor) Add a 'legacy' bucket to /leads/status-counts instead of silently rolling legacy leads into 'qualified'."
+  ],
+  "critical_code_review_comments": [
+    "server.py:_run_pipeline (line 181-255) is 75 lines with 3 try/except blocks and mixed responsibilities (state transitions + qualify + outreach + integrations + activity appending). Consider extracting each phase into a helper on AIService/Orchestrator to keep pipeline flow readable.",
+    "server.py:regenerate (line 348-388) reconstructs the Outreach model and legacy GeneratedEmail on every call. If two regenerate calls race (same lead), the second one wins based on last-write. Not a data-corruption risk since output is idempotent, but no optimistic locking. Acceptable for MVP.",
+    "ai_service.py:generate_outreach always calls the LLM with the FULL outreach prompt regardless of decision_type (regenerate_email, regenerate_linkedin, regenerate_followup, outreach, test). This means per-piece regeneration wastes ~75% of LLM output. Consider passing decision_type into the prompt or using a targeted single-piece template.",
+    "prompt_store.py:get() seeds a default on first read. If two coroutines call get() simultaneously for the same (owner,name) pair (e.g., first login), you could insert two docs (no unique index on (owner_id,name)). Add a unique compound index or use $setOnInsert upsert.",
+    "prompt_store.py:update always increments version even if template didn't change. Consider skipping the version bump when new template == existing template to avoid confusing history.",
+    "models.py:Qualification — score field is Optional[int] with no upper/lower bound validation. LLM could theoretically return score=200 and it would persist. Add Field(ge=0, le=100).",
+    "models.py:AIDecision — decision_type is a str, not a Literal. All the string constants ('qualification'|'outreach'|'regenerate_email'|'regenerate_linkedin'|'regenerate_followup'|'test') are enforced only by convention. Consider Literal for compile-time safety and OpenAPI schema clarity.",
+    "server.py:analytics_ai treats decisions.status='fallback' as failure for qualification_success_rate. If LLM ever hits transient errors, fallback path is engaged which produces valid heuristic output BUT is counted as non-success. Consider separating 'llm_success_rate' vs 'qualification_success_rate' (any output produced).",
+    "server.py:/leads/status-counts uses cur async iteration for aggregation but returns immediately after the loop — no ordering guarantee for parallel writes. Acceptable but tests should be aware."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase3.py (created, 33 new Phase 3 tests)",
+    "/app/backend/tests/backend_test.py (added _poll_until_qualified helper; TestLeads.created_lead fixture + public capture test now poll for async pipeline completion)",
+    "/app/backend/tests/test_integrations.py (added _poll_until_qualified helper; TestLeadIntegrationPipeline.high_score_lead, TestIntegrationLogs.test_logs_are_persisted_and_shaped, TestRetrySync.test_retry_sync_appends_activities_and_logs, TestStatusPatchGracefulSkip, and TestN8nRetryBackoff all poll after POST /api/leads since the pipeline is now async)"
+  ],
+  "success_rate": {"backend": "100% (79/79)", "frontend": "not tested (backend-only per request)"},
+  "test_credentials": "demo@sdr.ai / demo1234 (existing). Each Phase 3 test class signs up its own throwaway TEST_p3_* user to keep prompts/settings isolated under xdist -n 2 loadscope.",
+  "seed_data_creation": "Each Phase 3 test class creates a fresh user via /api/auth/signup. Some tests also create leads and let the async pipeline complete. Left in place (preview DB, low volume).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Full backend suite is green: 79 tests (27 Phase 1 + 19 Phase 2 + 33 Phase 3), ~127s wall clock, dominated by GPT-5.2 latency (~5-6s per qualify, ~5-6s per outreach). RUN: cd /app/backend && REACT_APP_BACKEND_URL=https://sdr-automation-2.preview.emergentagent.com python -m pytest tests/ -v. CRITICAL: POST /api/leads is now ASYNC — it returns in <1s with processing_status='pending', pipeline runs via FastAPI BackgroundTasks. Use _poll_until_qualified() helper (defined in both backend_test.py AND test_integrations.py AND test_phase3.py) after any lead creation. Poll timeout should be >=60s. xdist -n 2 loadscope is still in force — always allocate a per-class fresh user with _new_user() before mutating settings or prompts. Prompt customisation is per-owner; each fresh signup starts at v1. The httpbin.org/status/503 dependency in test_n8n_retries_3_times_with_exponential_backoff is external — if httpbin is down, swap for any URL returning non-2xx quickly.",
+  "rca_of_the_issue": "N/A — no bugs found. Regression failures on first full-suite run were EXPECTED: Phase 3 changed POST /api/leads from sync (returned fully-qualified lead) to async (returns immediately, pipeline runs in background). Updated Phase 1+2 tests to poll for terminal state instead of asserting on the immediate POST response. This is a test maintenance fix, not an app fix — the behavior change is intentional per Phase 3 spec ('POST /api/leads returns instantly')."
+}

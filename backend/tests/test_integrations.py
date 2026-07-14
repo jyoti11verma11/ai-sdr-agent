@@ -62,6 +62,20 @@ def _reset_settings(api_client, headers, extra: dict | None = None):
     return r.json()
 
 
+def _poll_until_qualified(session, headers, lead_id: str, timeout: float = 60.0):
+    """Phase 3: POST /api/leads is async — poll GET /api/leads/{id} until terminal."""
+    deadline = time.time() + timeout
+    last = None
+    while time.time() < deadline:
+        r = session.get(f"{BASE_URL}/api/leads/{lead_id}", headers=headers, timeout=15)
+        assert r.status_code == 200, r.text
+        last = r.json()
+        if last.get("processing_status") in ("qualified", "failed"):
+            return last
+        time.sleep(1.0)
+    return last
+
+
 # ---------------- Integrations status ----------------
 class TestIntegrationsStatus:
     @pytest.fixture(scope="class")
@@ -173,7 +187,7 @@ class TestLeadIntegrationPipeline:
         r = api_client.post(f"{BASE_URL}/api/leads", json=payload,
                             headers=user["headers"], timeout=90)
         assert r.status_code == 200, r.text
-        return r.json()
+        return _poll_until_qualified(api_client, user["headers"], r.json()["id"], timeout=60.0)
 
     def test_activity_chain_and_metadata(self, high_score_lead):
         lead = high_score_lead
@@ -236,6 +250,8 @@ class TestIntegrationLogs:
         r = api_client.post(f"{BASE_URL}/api/leads", json=payload,
                             headers=user["headers"], timeout=90)
         assert r.status_code == 200
+        # wait for pipeline to run so logs are populated
+        _poll_until_qualified(api_client, user["headers"], r.json()["id"], timeout=60.0)
 
         r = api_client.get(f"{BASE_URL}/api/integrations/logs", headers=user["headers"])
         assert r.status_code == 200, r.text
@@ -298,7 +314,8 @@ class TestRetrySync:
         r = api_client.post(f"{BASE_URL}/api/leads", json=create_payload,
                             headers=user["headers"], timeout=90)
         assert r.status_code == 200, r.text
-        lead_before = r.json()
+        # wait for pipeline to complete so lead is qualified
+        lead_before = _poll_until_qualified(api_client, user["headers"], r.json()["id"], timeout=60.0)
         lead_id = lead_before["id"]
         acts_before = len(lead_before["activities"])
 
@@ -382,6 +399,8 @@ class TestStatusPatchGracefulSkip:
                             headers=user["headers"], timeout=90)
         assert r.status_code == 200
         lead_id = r.json()["id"]
+        # wait for pipeline so status transition is safe
+        _poll_until_qualified(api_client, user["headers"], lead_id, timeout=60.0)
         r_patch = api_client.patch(f"{BASE_URL}/api/leads/{lead_id}/status",
                                     json={"status": "contacted"},
                                     headers=user["headers"], timeout=30)
@@ -411,10 +430,12 @@ class TestN8nRetryBackoff:
             }
             t0 = time.time()
             r = api_client.post(f"{BASE_URL}/api/leads", json=payload,
-                                headers=user["headers"], timeout=120)
-            elapsed = time.time() - t0
+                                headers=user["headers"], timeout=30)
             assert r.status_code == 200, r.text
-            lead = r.json()
+            # Phase 3: pipeline runs in background — poll until qualified,
+            # then measure total elapsed to observe backoff
+            lead = _poll_until_qualified(api_client, user["headers"], r.json()["id"], timeout=90.0)
+            elapsed = time.time() - t0
             n8n_acts = [a for a in lead["activities"] if a["type"] == "n8n_triggered"]
             assert len(n8n_acts) == 1, \
                 f"Expected exactly 1 n8n activity, got: {[a['type'] for a in lead['activities']]}"
