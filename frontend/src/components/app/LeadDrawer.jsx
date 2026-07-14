@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Loader2, Copy, RefreshCw, Trash2, Mail, Sparkles, CheckCircle2, ExternalLink } from "lucide-react";
+import { Loader2, Copy, RefreshCw, Trash2, Mail, Sparkles, CheckCircle2, ExternalLink, PlugZap } from "lucide-react";
 import { scoreColor, statusColor, timeAgo } from "@/lib/utils";
 
 const STATUSES = ["new", "qualifying", "qualified", "disqualified", "contacted", "converted"];
@@ -11,6 +11,7 @@ export default function LeadDrawer({ leadId, onClose, onChanged }) {
   const [lead, setLead] = useState(null);
   const [loading, setLoading] = useState(false);
   const [regen, setRegen] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const open = !!leadId;
 
   useEffect(() => {
@@ -33,6 +34,16 @@ export default function LeadDrawer({ leadId, onClose, onChanged }) {
       toast.success("Email regenerated");
     } catch (e) { toast.error("Failed to regenerate"); }
     finally { setRegen(false); }
+  };
+
+  const retrySync = async () => {
+    setRetrying(true);
+    try {
+      const { data } = await api.post(`/leads/${leadId}/retry-sync`);
+      setLead(data); onChanged?.();
+      toast.success("Integrations re-run");
+    } catch (e) { toast.error(e?.response?.data?.detail || "Retry failed"); }
+    finally { setRetrying(false); }
   };
 
   const del = async () => {
@@ -148,20 +159,40 @@ export default function LeadDrawer({ leadId, onClose, onChanged }) {
 
             {/* Timeline */}
             <div className="mt-6">
-              <div className="overline mb-2">Activity timeline</div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="overline">Activity timeline</div>
+                <button onClick={retrySync} disabled={retrying}
+                  data-testid="retry-sync-btn"
+                  className="inline-flex items-center gap-1 h-8 px-3 text-xs rounded-md border border-border bg-background hover:bg-accent transition-colors disabled:opacity-60">
+                  {retrying ? <Loader2 className="h-3 w-3 animate-spin" /> : <PlugZap className="h-3 w-3" />} Retry integrations
+                </button>
+              </div>
               <ol className="space-y-3 border-l-2 border-border pl-4">
-                {[...(lead.activities || [])].reverse().map((a) => (
-                  <li key={a.id} className="text-sm relative">
-                    <span className="absolute -left-[22px] top-1.5 h-2.5 w-2.5 rounded-full bg-primary/60 ring-2 ring-background" />
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="text-foreground">{a.message}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5 font-mono">{a.type}</div>
+                {[...(lead.activities || [])].reverse().map((a) => {
+                  const md = a.metadata || {};
+                  const isError = md.status === "error";
+                  const isMocked = md.status === "mocked";
+                  const isSuccess = md.status === "success";
+                  return (
+                    <li key={a.id} className="text-sm relative">
+                      <span className={`absolute -left-[22px] top-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-background ${
+                        isError ? "bg-destructive" : isSuccess ? "bg-emerald-500" : isMocked ? "bg-amber-500" : "bg-primary/60"
+                      }`} />
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-foreground line-clamp-2">{a.message}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5 font-mono flex items-center gap-2">
+                            <span>{a.type}</span>
+                            {isError && <span className="text-destructive">· error</span>}
+                            {isMocked && <span className="text-amber-600 dark:text-amber-400">· mock</span>}
+                            {md.attempts > 1 && <span>· {md.attempts} attempts</span>}
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground shrink-0">{timeAgo(a.at)}</div>
                       </div>
-                      <div className="text-xs text-muted-foreground shrink-0">{timeAgo(a.at)}</div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ol>
             </div>
 

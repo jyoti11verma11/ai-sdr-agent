@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import {
   ArrowUpRight, Users, CheckCircle2, TrendingUp, Gauge, Sparkles, Plus,
-  Activity as ActIcon, Zap, Flame, Circle
+  Activity as ActIcon, Zap, MessageSquare, Webhook, Circle, XCircle
 } from "lucide-react";
 import { scoreColor, timeAgo } from "@/lib/utils";
 import NewLeadDialog from "@/components/app/NewLeadDialog";
@@ -20,6 +20,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [s, setS] = useState(null);
   const [acts, setActs] = useState([]);
+  const [integrations, setIntegrations] = useState(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -28,12 +29,14 @@ export default function Dashboard() {
     setLoading(true);
     setError(null);
     try {
-      const [a, b] = await Promise.all([
+      const [a, b, c] = await Promise.all([
         api.get("/analytics/summary"),
         api.get("/analytics/activity?limit=8"),
+        api.get("/integrations/status"),
       ]);
       setS(a.data);
       setActs(b.data);
+      setIntegrations(c.data);
     } catch (e) {
       setError("Couldn't load your pipeline. Try again in a moment.");
     } finally {
@@ -99,6 +102,19 @@ export default function Dashboard() {
           <Kpi icon={<Gauge className="h-4 w-4" />} label="Avg score" value={s?.avg_score ?? 0}
             hint={hintForScore(s?.avg_score)} tid="kpi-score" />
         </motion.div>
+      )}
+
+      {/* Integration health strip */}
+      {integrations && (
+        <div className="mb-6 lg:mb-8 rounded-xl border border-border bg-card p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3" data-testid="integrations-strip">
+          <div className="overline shrink-0">Integrations</div>
+          <div className="flex flex-wrap items-center gap-2 flex-1">
+            <IntChip name="HubSpot" data={integrations.hubspot} Icon={Zap} />
+            <IntChip name="Slack" data={integrations.slack} Icon={MessageSquare} />
+            <IntChip name="n8n" data={integrations.n8n} Icon={Webhook} />
+          </div>
+          <Link to="/app/settings" className="text-xs text-primary font-medium hover:underline shrink-0">Configure →</Link>
+        </div>
       )}
 
       {/* Insights + Activity */}
@@ -251,4 +267,24 @@ function hintForScore(s) {
   if (s >= 60) return "Solid mid-market";
   if (s >= 40) return "Warming up";
   return "Needs more traffic";
+}
+function IntChip({ name, data, Icon }) {
+  const errored = data?.last_status === "error";
+  const live = data?.mode === "live";
+  const cls = errored
+    ? "border-destructive/30 bg-destructive/5 text-destructive"
+    : live
+    ? "border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300"
+    : "border-border bg-muted text-muted-foreground";
+  const label = errored ? "error" : live ? "live" : "mock";
+  const StatusIcon = errored ? XCircle : live ? CheckCircle2 : Circle;
+  return (
+    <div className={`inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs ${cls}`}>
+      <Icon className="h-3.5 w-3.5" />
+      <span className="font-medium">{name}</span>
+      <span className="opacity-70">·</span>
+      <span className="inline-flex items-center gap-1 font-medium"><StatusIcon className="h-3 w-3" /> {label}</span>
+      {data?.last_sync && <span className="opacity-70 hidden md:inline">· {timeAgo(data.last_sync)}</span>}
+    </div>
+  );
 }

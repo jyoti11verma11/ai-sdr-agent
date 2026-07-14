@@ -186,15 +186,16 @@ class TestLeads:
         assert em.get("body"), "email body missing"
         assert len(em["body"]) > 30
 
-        # Activities include the required lifecycle types
+        # Activities include the required lifecycle types (Phase 2 split hubspot_sync into 3)
         act_types = {a.get("type") for a in lead.get("activities", [])}
         for expected in ("created", "qualified", "email_generated",
-                         "hubspot_sync", "slack_notified"):
+                         "hubspot_contact", "hubspot_company", "hubspot_deal",
+                         "slack_notified"):
             assert expected in act_types, f"Missing activity: {expected}. Got {act_types}"
 
         # Mock integrations logged with mocked status
         for a in lead["activities"]:
-            if a["type"] == "hubspot_sync":
+            if a["type"] in ("hubspot_contact", "hubspot_company", "hubspot_deal"):
                 assert a.get("metadata", {}).get("status") == "mocked"
             if a["type"] == "slack_notified":
                 assert a.get("metadata", {}).get("status") == "mocked"
