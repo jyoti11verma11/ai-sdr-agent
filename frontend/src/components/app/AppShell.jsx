@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
-import { LayoutDashboard, Users, BarChart3, Settings as Cog, LogOut, Sparkles } from "lucide-react";
+import { LayoutDashboard, Users, BarChart3, Settings as Cog, LogOut, Sparkles, Menu, X, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ThemeToggle from "@/components/app/ThemeToggle";
 
 const nav = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
@@ -15,68 +16,136 @@ export default function AppShell({ children }) {
   const { user, logout } = useAuth();
   const nav_ = useNavigate();
   const loc = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
   const isActive = (to) => (to === "/app" ? loc.pathname === "/app" : loc.pathname.startsWith(to));
 
-  return (
-    <div className="min-h-screen bg-[#F7F7F9] text-slate-900 flex" data-testid="app-shell">
-      <aside className="w-64 shrink-0 border-r border-slate-200/80 bg-white flex flex-col">
-        <div className="px-6 py-6 border-b border-slate-100">
-          <Link to="/app" className="flex items-center gap-2" data-testid="sidebar-logo">
-            <div className="h-8 w-8 rounded-md bg-[#0044FF] grid place-items-center text-white">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="font-display font-bold text-lg leading-tight tracking-tight">SDR Agent</div>
-              <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500">AI • Inbound</div>
-            </div>
-          </Link>
-        </div>
+  const currentPage = nav.find((n) => isActive(n.to))?.label || "";
 
-        <nav className="flex-1 px-3 py-4 space-y-1">
-          {nav.map((n) => {
-            const Icon = n.icon;
-            const active = isActive(n.to);
-            return (
-              <Link
-                key={n.to}
-                to={n.to}
-                data-testid={n.testId}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  active ? "bg-[#0044FF] text-white" : "text-slate-700 hover:bg-slate-100"
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{n.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="p-4 border-t border-slate-100">
-          <div className="flex items-center gap-3 px-2 py-2 rounded-md">
-            <div className="h-9 w-9 rounded-full bg-slate-900 text-white grid place-items-center font-semibold text-sm">
-              {(user?.full_name || user?.email || "U").slice(0,1).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate" data-testid="user-name">{user?.full_name}</div>
-              <div className="text-xs text-slate-500 truncate">{user?.email}</div>
-            </div>
-            <button
-              onClick={() => { logout(); nav_("/"); }}
-              className="p-2 rounded-md text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-              title="Sign out"
-              data-testid="logout-btn"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
+  const SidebarInner = (
+    <>
+      <div className="px-5 py-5 border-b border-border">
+        <Link to="/app" className="flex items-center gap-2.5" data-testid="sidebar-logo">
+          <div className="h-9 w-9 rounded-lg bg-primary grid place-items-center text-primary-foreground shadow-sm shadow-primary/25">
+            <Sparkles className="h-4 w-4" />
           </div>
+          <div>
+            <div className="font-display font-bold text-[15px] leading-tight tracking-tight">SDR Agent</div>
+            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mt-0.5">AI · Inbound</div>
+          </div>
+        </Link>
+      </div>
+
+      <nav className="flex-1 px-3 py-4 space-y-0.5">
+        <div className="px-3 pt-1 pb-2 text-[10px] uppercase tracking-widest text-muted-foreground/70">Workspace</div>
+        {nav.map((n) => {
+          const Icon = n.icon;
+          const active = isActive(n.to);
+          return (
+            <Link
+              key={n.to}
+              to={n.to}
+              data-testid={n.testId}
+              onClick={() => setMobileOpen(false)}
+              className={cn(
+                "group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                active
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-foreground/70 hover:text-foreground hover:bg-accent"
+              )}
+            >
+              <Icon className={cn("h-4 w-4 shrink-0", active ? "" : "text-muted-foreground group-hover:text-foreground")} />
+              <span>{n.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="px-3 pb-3">
+        <a
+          href={`/capture/${user?.email}`}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center justify-between gap-2 rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors"
+          data-testid="sidebar-capture-link"
+        >
+          <div className="min-w-0">
+            <div className="font-medium truncate text-foreground">Public capture link</div>
+            <div className="truncate">/capture/{user?.email}</div>
+          </div>
+          <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+        </a>
+      </div>
+
+      <div className="p-3 border-t border-border">
+        <div className="flex items-center gap-3 px-2 py-1.5 rounded-md">
+          <div className="h-9 w-9 rounded-full bg-foreground text-background grid place-items-center font-semibold text-sm">
+            {(user?.full_name || user?.email || "U").slice(0, 1).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate" data-testid="user-name">{user?.full_name}</div>
+            <div className="text-xs text-muted-foreground truncate">{user?.email}</div>
+          </div>
+          <button
+            onClick={() => { logout(); nav_("/"); }}
+            className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            title="Sign out"
+            data-testid="logout-btn"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="min-h-screen bg-[hsl(var(--shell-bg))] text-foreground flex" data-testid="app-shell">
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex w-64 shrink-0 border-r border-border bg-[hsl(var(--shell-sidebar))] flex-col sticky top-0 h-screen">
+        {SidebarInner}
       </aside>
 
-      <main className="flex-1 min-w-0">
-        {children}
-      </main>
+      {/* Mobile drawer */}
+      {mobileOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex" data-testid="mobile-nav-drawer">
+          <div className="fixed inset-0 bg-background/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          <aside className="relative w-72 max-w-[85%] bg-[hsl(var(--shell-sidebar))] border-r border-border flex flex-col">
+            {SidebarInner}
+          </aside>
+        </div>
+      )}
+
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Top bar */}
+        <header className="sticky top-0 z-30 h-14 border-b border-border bg-background/80 glass flex items-center justify-between px-4 lg:px-8">
+          <div className="flex items-center gap-3">
+            <button
+              className="lg:hidden inline-flex items-center justify-center h-9 w-9 rounded-md border border-border bg-card hover:bg-accent transition-colors"
+              onClick={() => setMobileOpen(true)}
+              data-testid="mobile-menu-toggle"
+              aria-label="Open menu"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+            <div className="text-sm text-muted-foreground hidden sm:block">
+              Workspace · <span className="text-foreground font-medium">{currentPage}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href={`/capture/${user?.email}`}
+              target="_blank"
+              rel="noreferrer"
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs h-9 px-3 rounded-md border border-border bg-card hover:bg-accent transition-colors"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> Capture URL
+            </a>
+            <ThemeToggle />
+          </div>
+        </header>
+
+        <main className="flex-1 min-w-0">{children}</main>
+      </div>
     </div>
   );
 }

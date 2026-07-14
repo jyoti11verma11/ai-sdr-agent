@@ -19,16 +19,16 @@ export default function NewLeadDialog({ open, onOpenChange, onCreated }) {
       onOpenChange(false);
       setForm({ name: "", email: "", company: "", job_title: "", website: "", company_size_hint: "", message: "" });
     } catch (err) {
-      toast.error(err?.response?.data?.detail || "Failed");
+      toast.error(err?.response?.data?.detail || "Failed to capture lead");
     } finally { setBusy(false); }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg" data-testid="new-lead-dialog">
+      <DialogContent className="max-w-lg bg-background border-border" data-testid="new-lead-dialog">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl tracking-tight">Capture new lead</DialogTitle>
-          <DialogDescription>The AI will qualify, score, and draft an email within a few seconds.</DialogDescription>
+          <DialogDescription className="text-muted-foreground">The AI will qualify, score and draft an email within a few seconds.</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
@@ -47,10 +47,10 @@ export default function NewLeadDialog({ open, onOpenChange, onCreated }) {
             <label className="text-sm font-medium">Message / inbound query</label>
             <textarea data-testid="nl-message" rows={4} value={form.message} onChange={set("message")}
               placeholder="Paste what they said or wrote…"
-              className="mt-1.5 w-full px-3 py-2 rounded-md border border-slate-300 focus:border-[#0044FF] focus:ring-2 focus:ring-[#0044FF]/20 outline-none transition-colors resize-y" />
+              className="mt-1.5 w-full px-3 py-2 rounded-md border border-border bg-background field-focus text-sm resize-y" />
           </div>
           <button disabled={busy} data-testid="nl-submit"
-            className="w-full h-10 rounded-md bg-[#0044FF] hover:bg-[#0033CC] text-white font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+            className="w-full h-10 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-60 shadow-sm shadow-primary/20">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             {busy ? "AI is qualifying…" : "Qualify with AI"}
           </button>
@@ -63,9 +63,9 @@ export default function NewLeadDialog({ open, onOpenChange, onCreated }) {
 function F({ label, required, tid, ...rest }) {
   return (
     <div>
-      <label className="text-sm font-medium">{label}{required && <span className="text-rose-500">*</span>}</label>
+      <label className="text-sm font-medium">{label}{required && <span className="text-destructive">*</span>}</label>
       <input data-testid={tid} required={required} {...rest}
-        className="mt-1.5 w-full h-10 px-3 rounded-md border border-slate-300 focus:border-[#0044FF] focus:ring-2 focus:ring-[#0044FF]/20 outline-none transition-colors" />
+        className="mt-1.5 w-full h-10 px-3 rounded-md border border-border bg-background field-focus text-sm" />
     </div>
   );
 }

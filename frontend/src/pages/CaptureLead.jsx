@@ -26,28 +26,31 @@ export default function CaptureLead() {
 
   if (done) {
     return (
-      <div className="min-h-screen bg-[#F7F7F9] grid place-items-center p-6" data-testid="capture-success">
-        <div className="max-w-md w-full bg-white rounded-xl border border-slate-200 p-8 text-center">
+      <div className="min-h-screen bg-muted/30 grid place-items-center p-6" data-testid="capture-success">
+        <div className="max-w-md w-full bg-card rounded-xl border border-border p-8 text-center">
           <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto mb-3" />
           <h2 className="font-display text-2xl font-semibold tracking-tight">Thanks, {done.name.split(" ")[0]}!</h2>
-          <p className="text-slate-500 mt-2 text-sm">Our AI has qualified your inquiry and the team has been notified. Expect a reply within the day.</p>
+          <p className="text-muted-foreground mt-2 text-sm">Our AI has qualified your inquiry and the team has been notified. Expect a reply within the day.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F7F9] py-16 px-6" data-testid="capture-page">
+    <div className="min-h-screen bg-muted/30 py-12 sm:py-16 px-4 sm:px-6" data-testid="capture-page">
       <div className="max-w-lg mx-auto">
-        <div className="flex items-center gap-2 mb-8">
-          <div className="h-8 w-8 rounded-md bg-[#0044FF] grid place-items-center text-white"><Sparkles className="h-4 w-4" /></div>
-          <span className="font-display font-bold text-lg tracking-tight">Get in touch</span>
+        <div className="flex items-center gap-2.5 mb-6 sm:mb-8">
+          <div className="h-9 w-9 rounded-lg bg-primary grid place-items-center text-primary-foreground"><Sparkles className="h-4 w-4" /></div>
+          <div>
+            <div className="font-display font-bold text-lg tracking-tight">Get in touch</div>
+            <div className="text-xs text-muted-foreground">Reviewed by an AI SDR in real time</div>
+          </div>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-8">
+        <div className="bg-card rounded-xl border border-border p-6 sm:p-8">
           <div className="mb-6">
             <div className="overline mb-2">Inbound</div>
             <h1 className="font-display text-2xl font-semibold tracking-tight">Tell us about your project</h1>
-            <p className="text-slate-500 mt-1 text-sm">Our AI SDR reads every submission and routes you to the right person.</p>
+            <p className="text-muted-foreground mt-1 text-sm">Our AI reads every submission and routes you to the right person.</p>
           </div>
           <form onSubmit={submit} className="space-y-4" data-testid="capture-form">
             <Field label="Full name" value={form.name} onChange={set("name")} required tid="capture-name" />
@@ -57,10 +60,10 @@ export default function CaptureLead() {
             <div>
               <label className="text-sm font-medium">What are you looking for?</label>
               <textarea data-testid="capture-message" value={form.message} onChange={set("message")} rows={4}
-                className="mt-1.5 w-full px-3 py-2 rounded-md border border-slate-300 focus:border-[#0044FF] focus:ring-2 focus:ring-[#0044FF]/20 outline-none transition-colors resize-y" />
+                className="mt-1.5 w-full px-3 py-2 rounded-md border border-border bg-background field-focus text-sm resize-y" />
             </div>
             <button disabled={busy} data-testid="capture-submit"
-              className="w-full h-10 rounded-md bg-[#0044FF] hover:bg-[#0033CC] text-white font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+              className="w-full h-10 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-60 shadow-sm shadow-primary/20">
               {busy && <Loader2 className="h-4 w-4 animate-spin" />} Submit
             </button>
           </form>
@@ -73,9 +76,9 @@ export default function CaptureLead() {
 function Field({ label, value, onChange, type = "text", required, tid }) {
   return (
     <div>
-      <label className="text-sm font-medium">{label}{required && <span className="text-rose-500">*</span>}</label>
+      <label className="text-sm font-medium">{label}{required && <span className="text-destructive">*</span>}</label>
       <input data-testid={tid} type={type} required={required} value={value} onChange={onChange}
-        className="mt-1.5 w-full h-10 px-3 rounded-md border border-slate-300 focus:border-[#0044FF] focus:ring-2 focus:ring-[#0044FF]/20 outline-none transition-colors" />
+        className="mt-1.5 w-full h-10 px-3 rounded-md border border-border bg-background field-focus text-sm" />
     </div>
   );
 }

@@ -1,96 +1,151 @@
 import React, { useEffect, useState } from "react";
 import api from "@/lib/api";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, PieChart, Pie, Cell } from "recharts";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart,
+  Line, CartesianGrid, PieChart, Pie, Cell,
+} from "recharts";
+import { motion } from "framer-motion";
+import { LineChart as LineIcon, PieChart as PieIcon, BarChart3, TrendingUp } from "lucide-react";
+import { SkeletonBlock } from "@/components/app/Skeletons";
+import EmptyState from "@/components/app/EmptyState";
 
-const CHART_COLORS = ["#0044FF", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"];
+const CHART_COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))", "#EC4899", "#14B8A6", "#F97316"];
+
+const tooltipStyle = {
+  background: "hsl(var(--popover))",
+  border: "1px solid hsl(var(--border))",
+  borderRadius: 8,
+  fontSize: 12,
+  color: "hsl(var(--foreground))",
+};
 
 export default function Analytics() {
   const [s, setS] = useState(null);
-  useEffect(() => { api.get("/analytics/summary").then((r) => setS(r.data)); }, []);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const load = () => {
+    setLoading(true); setError(null);
+    api.get("/analytics/summary").then((r) => setS(r.data))
+      .catch(() => setError("Couldn't load analytics"))
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  const empty = !loading && s && (s.total_leads ?? 0) === 0;
 
   return (
-    <div className="p-8 max-w-[1400px] mx-auto" data-testid="analytics-page">
-      <div className="mb-8">
+    <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-[1400px] mx-auto" data-testid="analytics-page">
+      <div className="mb-6 lg:mb-8">
         <div className="overline mb-2">Reporting</div>
-        <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight">Analytics</h1>
-        <p className="text-slate-500 mt-1 text-sm">Pipeline health, score distribution, and industry mix.</p>
+        <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tighter">Analytics</h1>
+        <p className="text-sm text-muted-foreground mt-1.5">Pipeline health, score distribution, and industry mix.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartCard title="Leads over time" subtitle="Last 14 days" testId="chart-timeline">
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={s?.timeline || []} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#94a3b8" />
-              <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" allowDecimals={false} />
-              <Tooltip contentStyle={{ border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 12 }} />
-              <Line type="monotone" dataKey="count" stroke="#0044FF" strokeWidth={2} dot={{ r: 3 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartCard>
+      {error && (
+        <div className="mb-6 rounded-lg border border-destructive/30 bg-destructive/5 text-destructive text-sm px-4 py-3 flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={load} className="text-xs underline">Retry</button>
+        </div>
+      )}
 
-        <ChartCard title="Score distribution" subtitle="Fit + intent buckets" testId="chart-distribution">
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={s?.score_distribution || []} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="bucket" tick={{ fontSize: 11 }} stroke="#94a3b8" />
-              <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" allowDecimals={false} />
-              <Tooltip contentStyle={{ border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 12 }} />
-              <Bar dataKey="count" fill="#0044FF" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
+      {empty ? (
+        <EmptyState
+          icon={<BarChart3 className="h-5 w-5" />}
+          title="No pipeline data yet"
+          description="Once you capture a few leads the analytics will populate automatically."
+        />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+          <ChartCard title="Leads over time" subtitle="Last 14 days" icon={<LineIcon className="h-4 w-4" />} testId="chart-timeline" loading={loading}>
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={s?.timeline || []} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} stroke="hsl(var(--border))" />
+                <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} stroke="hsl(var(--border))" allowDecimals={false} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Line type="monotone" dataKey="count" stroke="hsl(var(--chart-1))" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 0, fill: "hsl(var(--chart-1))" }} activeDot={{ r: 5 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartCard>
 
-        <ChartCard title="By industry" subtitle="Top segments" testId="chart-industry">
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie data={s?.by_industry || []} dataKey="count" nameKey="industry" cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={2}>
-                {(s?.by_industry || []).map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-              </Pie>
-              <Tooltip contentStyle={{ border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 12 }} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-            {(s?.by_industry || []).map((r, i) => (
-              <div key={r.industry} className="flex items-center gap-2 text-slate-600">
-                <span className="h-2 w-2 rounded-sm" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
-                {r.industry} · {r.count}
+          <ChartCard title="Score distribution" subtitle="Fit + intent buckets" icon={<BarChart3 className="h-4 w-4" />} testId="chart-distribution" loading={loading}>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={s?.score_distribution || []} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="bucket" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} stroke="hsl(var(--border))" />
+                <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} stroke="hsl(var(--border))" allowDecimals={false} />
+                <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "hsl(var(--accent))" }} />
+                <Bar dataKey="count" fill="hsl(var(--chart-1))" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <ChartCard title="By industry" subtitle="Top segments" icon={<PieIcon className="h-4 w-4" />} testId="chart-industry" loading={loading}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie data={s?.by_industry || []} dataKey="count" nameKey="industry" cx="50%" cy="50%" innerRadius={56} outerRadius={90} paddingAngle={2} stroke="hsl(var(--card))">
+                    {(s?.by_industry || []).map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip contentStyle={tooltipStyle} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-1.5">
+                {(s?.by_industry || []).map((r, i) => (
+                  <div key={r.industry} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                      <span className="text-foreground/90">{r.industry}</span>
+                    </div>
+                    <span className="text-muted-foreground font-mono">{r.count}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </ChartCard>
+            </div>
+          </ChartCard>
 
-        <ChartCard title="Conversion funnel" subtitle="Live pipeline" testId="chart-funnel">
-          <div className="space-y-3 py-4">
-            {[
-              { label: "Total leads", value: s?.total_leads ?? 0, color: "#0044FF" },
-              { label: "Qualified", value: s?.qualified_leads ?? 0, color: "#10B981" },
-              { label: "Conversion %", value: s ? `${s.conversion_rate}%` : "—", color: "#F59E0B" },
-              { label: "Avg score", value: s?.avg_score ?? 0, color: "#8B5CF6" },
-            ].map((r) => (
-              <div key={r.label} className="flex items-center justify-between border-b border-slate-100 pb-2 last:border-0">
-                <div className="flex items-center gap-3">
-                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: r.color }} />
-                  <span className="text-sm text-slate-700">{r.label}</span>
+          <ChartCard title="Conversion funnel" subtitle="Live pipeline" icon={<TrendingUp className="h-4 w-4" />} testId="chart-funnel" loading={loading}>
+            <div className="space-y-2.5 py-2">
+              {[
+                { label: "Total leads", value: s?.total_leads ?? 0, pct: 100, color: "hsl(var(--chart-1))" },
+                { label: "Qualified", value: s?.qualified_leads ?? 0, pct: s?.qualified_rate ?? 0, color: "hsl(var(--chart-2))" },
+                { label: "Conversion %", value: `${s?.conversion_rate ?? 0}%`, pct: s?.conversion_rate ?? 0, color: "hsl(var(--chart-3))" },
+                { label: "Avg score", value: s?.avg_score ?? 0, pct: Math.min(100, s?.avg_score ?? 0), color: "hsl(var(--chart-5))" },
+              ].map((r) => (
+                <div key={r.label}>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full" style={{ background: r.color }} />
+                      <span className="text-foreground/90">{r.label}</span>
+                    </div>
+                    <span className="font-display font-bold tracking-tight">{r.value}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${r.pct}%`, background: r.color }} />
+                  </div>
                 </div>
-                <div className="font-display text-xl font-bold tracking-tight">{r.value}</div>
-              </div>
-            ))}
-          </div>
-        </ChartCard>
-      </div>
+              ))}
+            </div>
+          </ChartCard>
+        </div>
+      )}
     </div>
   );
 }
 
-function ChartCard({ title, subtitle, testId, children }) {
+function ChartCard({ title, subtitle, icon, testId, loading, children }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6" data-testid={testId}>
-      <div className="mb-4">
-        <div className="overline">{subtitle}</div>
-        <h3 className="font-display text-lg font-semibold mt-1">{title}</h3>
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}
+      className="rounded-xl border border-border bg-card p-6" data-testid={testId}>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="overline">{subtitle}</div>
+          <h3 className="font-display text-lg font-semibold mt-1 tracking-tight">{title}</h3>
+        </div>
+        <div className="h-8 w-8 rounded-md bg-accent grid place-items-center text-muted-foreground">{icon}</div>
       </div>
-      {children}
-    </div>
+      {loading ? <SkeletonBlock className="h-64 w-full rounded-md" /> : children}
+    </motion.div>
   );
 }
