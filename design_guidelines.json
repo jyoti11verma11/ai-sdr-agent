@@ -1,0 +1,138 @@
+{
+  "theme_strategy": "Hybrid Architecture (Archetype 4: Swiss & High-Contrast). Dark, immersive 'Motion as Product' marketing page to build technical credibility, transitioning to a dense, stark-white, high-efficiency dashboard for AE and SDR daily operations.",
+  "typography": {
+    "headings": {
+      "family": "Manrope",
+      "rules": "Must use tight letter spacing (tracking-tighter) for H1/H2. Never center-align by default. Do NOT use Inter.",
+      "scales": {
+        "h1": "text-4xl md:text-5xl lg:text-6xl tracking-tighter leading-none font-bold",
+        "h2": "text-2xl md:text-3xl lg:text-4xl tracking-tight leading-tight font-semibold",
+        "h3": "text-xl md:text-2xl tracking-tight font-medium",
+        "overline": "text-xs uppercase tracking-[0.2em] font-bold text-slate-500"
+      }
+    },
+    "body": {
+      "family": "IBM Plex Sans",
+      "rules": "Left-aligned for all dense content, tables, and AI insights. Use leading-relaxed for long-form text (AI generated emails).",
+      "scales": {
+        "base": "text-sm md:text-base text-slate-700 dark:text-slate-300",
+        "small": "text-xs md:text-sm text-slate-500 dark:text-slate-400"
+      }
+    }
+  },
+  "colors": {
+    "archetype": "Swiss & High-Contrast with Electric Blue AI Accents",
+    "light_mode": {
+      "background": "#FFFFFF",
+      "surface": "#F7F7F9",
+      "text_primary": "#0A0A0A",
+      "text_secondary": "#64748B",
+      "border": "rgba(0,0,0,0.08)",
+      "primary": "#0044FF",
+      "primary_hover": "#0033CC",
+      "accent_positive": "#10B981",
+      "accent_warning": "#F59E0B",
+      "accent_negative": "#EF4444"
+    },
+    "dark_mode": {
+      "background": "#050505",
+      "surface": "#121212",
+      "text_primary": "#FAFAFA",
+      "text_secondary": "#A1A1AA",
+      "border": "rgba(255,255,255,0.1)",
+      "primary": "#3366FF",
+      "primary_hover": "#6688FF"
+    },
+    "rules": "Tint all grays slightly with cool blue. Never use pure #000000 or #808080. Ensure APCA contrast compliance, especially for lead scores and AI insights. Use primary color strictly for CTAs, AI action triggers, and primary metrics."
+  },
+  "visual_enhancers": {
+    "glassmorphism": "Used ONLY for sticky header and AI generation loading overlays. bg-white/70 or bg-black/60 with backdrop-blur-xl, saturate-150, and 1px delicate inner border.",
+    "neumorphism": "Avoided. Stick to sharp, high-contrast Swiss geometry.",
+    "borders_and_shadows": "Dashboard uses 1px solid borders (border-border) with NO shadows by default. Hover states introduce shadow-lg and -translate-y-1 for interactive cards.",
+    "the_tracing_beam": "Apply to the 'AI Qualification Summary' component to visually distinguish AI-generated intelligence from standard CRM data."
+  },
+  "component_rules": {
+    "forms": "Use Shadcn Input, Select, and Form. Never native inputs. Wrap with generous padding (p-6).",
+    "tables": "Dense layout. Use Shadcn Table. Lead scores must use badge components with dynamic color coding (Green > 80, Yellow 50-79, Red < 50).",
+    "buttons": "Pill-shaped or slightly rounded (rounded-md) with micro-interactions. Hover must explicitly change text color and background.",
+    "cards": "For marketing: use custom HTML/Tailwind for bento boxes (no rigid Shadcn cards). For dashboard: use Shadcn Cards with modified padding (p-6) and zero default shadows.",
+    "drawers": "Use Shadcn Sheet for the Lead Detail view, sliding in from the right. Must contain the AI generated email and activity timeline."
+  },
+  "grids": {
+    "marketing": "Mode A (Tetris Grid). grid-cols-1 md:grid-cols-12 gap-8. Heavy asymmetry. Hero section spans full width, supporting bento boxes span 4 or 8 columns.",
+    "dashboard": "Mode B (High Density). grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 or gap-6. KPI summary widgets are col-span-1. Main analytics chart is col-span-2 or col-span-3. Lead list spans full width below."
+  },
+  "layouts": {
+    "spacing": "Generous spacing. Use p-8, p-12, py-24 for marketing sections. Inside dashboard cards, use p-6 (never less than p-4).",
+    "alignment": "Mobile-first. Left-align text by default. Only center-align hero text if balanced with symmetrical graphics.",
+    "navigation": "Sticky glassmorphism header. Z-index 50. Must have Brand, 4 links, and Primary CTA on desktop."
+  },
+  "motion": {
+    "micro_interactions": "All buttons and table rows must have hover:bg and hover:translate-y-[1px] or similar transitions.",
+    "page_transitions": "Use Framer Motion for staggered entrance of dashboard cards (duration 0.4s, stagger 0.1s).",
+    "ai_loading": "Use a staggered skeleton loader or ASCII art loader to simulate AI 'thinking' during qualification or email generation.",
+    "rules": "Do NOT use `transition: all`. Use specific `transition-colors`, `transition-transform`. Respect `prefers-reduced-motion`."
+  },
+  "accessibility": {
+    "contrast": "Minimum 4.5:1 for standard text. Test all AI generated text overlays.",
+    "testing_attributes": "All interactive elements (tabs, table rows, form inputs, generate button) MUST have `data-testid` attributes (e.g., `data-testid='login-form-submit-button'`).",
+    "screen_readers": "Use aria-hidden='true' for purely decorative AI graphics or icons."
+  },
+  "media": {
+    "image_constraints": "Hero images must not exceed max-h-[80vh] on mobile. Images inside bento grids must have object-cover.",
+    "overlays": "Marketing hero image must have bg-black/40 overlay to ensure text readability."
+  },
+  "3d_libraries": {
+    "charts": "Recharts for the Analytics Dashboard (Lead Conversion Funnel, Score Distribution).",
+    "animations": "framer-motion for marketing bento grid reveals and 'Live AI Agent' simulated cursor movements.",
+    "icons": "lucide-react for standard UI. Install @phosphor-icons/react for high-end duotone dashboard icons."
+  },
+  "image_urls": {
+    "marketing_hero_bg": {
+      "url": "https://images.pexels.com/photos/12843342/pexels-photo-12843342.jpeg",
+      "description": "Abstract blue geometric pattern. Place behind the hero section with a dark overlay (bg-black/60) to frame the value proposition."
+    },
+    "about_team": {
+      "url": "https://images.unsplash.com/photo-1758691737124-05c5bffe46f0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzZ8MHwxfHNlYXJjaHw0fHxtb2Rlcm4lMjBjb3Jwb3JhdGUlMjBvZmZpY2UlMjB0ZWFtfGVufDB8fHx8MTc4Mzg4MDUzNXww&ixlib=rb-4.1.0&q=85",
+      "description": "Diverse team collaborating. Use in the 'Why Us' or 'Human in the Loop' section of the marketing page."
+    },
+    "social_proof_logos": [
+      {
+        "url": "https://images.pexels.com/photos/7202944/pexels-photo-7202944.jpeg",
+        "description": "Logitech logo for social proof/trusted by section."
+      },
+      {
+        "url": "https://images.pexels.com/photos/21898300/pexels-photo-21898300.jpeg",
+        "description": "Pexels logo for social proof/trusted by section."
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Execute Phase 1: Set up the Tailwind configuration using the colors and fonts defined in this JSON. Ensure font families Manrope and IBM Plex Sans are imported.",
+    "Execute Phase 2: Build the Marketing Landing Page using a dark theme, Bento Grid layout (Mode A), and Framer Motion for staggered reveals. Build using .jsx/.js files.",
+    "Execute Phase 3: Build the Dashboard Layout using a light theme (Swiss High-Contrast). Create KPI widgets, the Leads Table with status badges, and the Analytics view using Recharts.",
+    "Execute Phase 4: Build the Lead Detail Drawer (using Shadcn Sheet). Include the AI Qualification Summary and 'AI Personalized Email Generator' layout.",
+    "Execute Phase 5: Integrate Settings page for Slack, HubSpot, and n8n webhook toggles.",
+    "CRITICAL: Do NOT center-align the app container. Left-align text blocks by default.",
+    "CRITICAL: Add data-testid attributes to all buttons, form inputs, and major layout sections.",
+    "CRITICAL: Do NOT use 'transition: all'. Apply specific transitions.",
+    "CRITICAL: Create components and views as .js or .jsx files, not .tsx files."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. In frontend design, this creates what users call the 'AI slop' aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur).",
+    "You MUST NOT apply universal transition. Eg: transition: all. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms.",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; } in the css file. This disrupts the human natural reading flow of text.",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style.",
+    "NEVER: use AI assistant Emoji characters like robot, brain, lightbulb, target, etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN.",
+    "Prioritize using pre-existing components from src/components/ui when applicable.",
+    "Use sonner for toasts, located in /app/src/components/ui/sonner.js or standard ui location."
+  ]
+}
