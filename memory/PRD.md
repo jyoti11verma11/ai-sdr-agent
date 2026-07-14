@@ -73,3 +73,22 @@ Build a production-ready SaaS "AI SDR Agent" that automates inbound lead qualifi
 ## Deferred (in first finish)
 - Docker files / README (mentioned in problem but non-blocking for functional demo)
 - TypeScript conversion (frontend is .jsx; backend is Python)
+
+## Phase 2 delivered (2026-07-14)
+- **Service-class architecture**: `HubSpotService`, `SlackService`, `N8nService`, `IntegrationOrchestrator` — each with `is_configured`, `test_connection`, and consistent `{provider, action, status, message, data, at}` result shape.
+- **HubSpot real API**: contact + company + deal + association endpoints; auto Mock Mode fallback when no token.
+- **Slack real API**: 3 notification types — qualified, high-priority (score ≥ 85 → HIGH_PRIORITY_SCORE env), qualification-failed.
+- **n8n**: outbound webhook with 3-attempt exponential backoff (BASE_BACKOFF=1s, MAX_ATTEMPTS=3); test-connection uses 1 attempt.
+- **Integration logs**: new `integration_logs` collection persists every attempt (owner_id, provider, action, status, message, lead_id, attempts, data, created_at).
+- **New endpoints**:
+  - `GET /api/integrations/status` — per-provider {configured, mode, last_sync, last_status, last_message}
+  - `POST /api/integrations/{provider}/test` — real Test Connection
+  - `GET /api/integrations/logs?provider=&limit=` — history
+  - `POST /api/leads/{id}/retry-sync` — re-run all enabled integrations
+  - `PATCH /api/leads/{id}/status` — now also calls HubSpot sync_status if contact_id known
+- **DI**: `get_orchestrator` FastAPI dependency injects a per-request orchestrator wired to that user's settings.
+- **Frontend**:
+  - Dashboard: **Integrations** health strip with live/mock/error chips + last-sync per provider.
+  - Settings: per-integration Mock/Live/Error pill + **Test connection** button + last-sync line.
+  - LeadDrawer: activity dots colored by status (green=success, amber=mock, red=error, blue=info), attempt counters, **Retry integrations** button.
+- **Tests**: 46/46 passing (Phase 1's 27 + 19 Phase 2 tests).
