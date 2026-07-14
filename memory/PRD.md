@@ -92,3 +92,36 @@ Build a production-ready SaaS "AI SDR Agent" that automates inbound lead qualifi
   - Settings: per-integration Mock/Live/Error pill + **Test connection** button + last-sync line.
   - LeadDrawer: activity dots colored by status (green=success, amber=mock, red=error, blue=info), attempt counters, **Retry integrations** button.
 - **Tests**: 46/46 passing (Phase 1's 27 + 19 Phase 2 tests).
+
+## Phase 3 delivered (2026-07-14) — True AI SDR Agent
+
+### Extended qualification schema
+`business_type`, `icp_match` (bool) + `icp_match_reasoning`, `urgency` (Low/Medium/High/Immediate), `decision_maker_probability` (0-100), `score_explanation`, `action_reasoning`. Recommended action now one of `{Book Demo, Call Immediately, Send Personalized Email, Add to Nurture Campaign, Reject Lead}`.
+
+### Personalised outreach kit
+`lead.outreach = { subject, first_email, linkedin_message, followup_email }` — all 4 pieces auto-generated. Per-piece regenerate via `POST /api/leads/{id}/regenerate?type=first_email|linkedin_message|followup_email|all`.
+
+### Background processing
+`POST /api/leads` returns in <1s with `processing_status='pending'`. FastAPI BackgroundTasks runs the pipeline async: pending → analyzing → qualified/failed. Dashboard polls `/api/leads/status-counts` every 4s while any pending/analyzing leads exist.
+
+### AI Decisions timeline
+Every LLM call persisted to `ai_decisions` collection with: id, owner_id, lead_id, decision_type, prompt_name, prompt_version, model, input_summary, output, reasoning, score, action, latency_ms, status (success/fallback/error), at. Exposed at `GET /api/leads/{id}/decisions`.
+
+### AI Playground
+- `GET /api/prompts` — list versioned prompts (qualification + outreach)
+- `PUT /api/prompts/{name}` — bumps version
+- `POST /api/prompts/{name}/reset` — restore default
+- `POST /api/prompts/{name}/test` — dry-run with sample lead
+- New `/app/playground` page with tabbed editor + live test panel
+
+### AI Analytics endpoint
+`GET /api/analytics/ai` — avg_ai_score, high_intent_leads, industry_distribution, top_icp_matches, qualification_success_rate, avg_processing_ms, prompt_versions, total_ai_decisions.
+
+### Frontend additions (existing design preserved)
+- Dashboard: 4-slot processing status strip with live polling
+- LeadDrawer: processing pill, full qualification metadata grid (ICP + reasoning + score explanation + DM probability + urgency), Next Best Action card with reasoning, three per-piece outreach blocks with copy+regen, AI Decisions timeline
+- Analytics: AI Performance metrics strip (5 KPIs) + Top fits by AI + Industries by AI
+- New AI Playground page and nav item
+
+### Tests
+79/79 backend tests passing (100%). Phase 3 added 33 new tests covering async pipeline, prompt versioning, per-piece regeneration, AIDecision persistence, analytics AI shape.
