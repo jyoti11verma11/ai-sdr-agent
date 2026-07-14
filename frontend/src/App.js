@@ -13,6 +13,9 @@ import Analytics from "@/pages/Analytics";
 import Settings from "@/pages/Settings";
 import CaptureLead from "@/pages/CaptureLead";
 import Playground from "@/pages/Playground";
+import Pipeline from "@/pages/Pipeline";
+import Team from "@/pages/Team";
+import AuditLogs from "@/pages/AuditLogs";
 import AppShell from "@/components/app/AppShell";
 
 function Protected({ children }) {
@@ -41,6 +44,9 @@ export default function App() {
               <Route path="/capture/:ownerEmail" element={<CaptureLead />} />
               <Route path="/app" element={<Protected><Dashboard /></Protected>} />
               <Route path="/app/leads" element={<Protected><Leads /></Protected>} />
+              <Route path="/app/pipeline" element={<Protected><Pipeline /></Protected>} />
+              <Route path="/app/team" element={<Protected><Team /></Protected>} />
+              <Route path="/app/audit" element={<Protected><AuditLogs /></Protected>} />
               <Route path="/app/analytics" element={<Protected><Analytics /></Protected>} />
               <Route path="/app/playground" element={<Protected><Playground /></Protected>} />
               <Route path="/app/settings" element={<Protected><Settings /></Protected>} />

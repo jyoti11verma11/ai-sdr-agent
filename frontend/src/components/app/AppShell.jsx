@@ -1,16 +1,21 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
-import { LayoutDashboard, Users, BarChart3, Settings as Cog, LogOut, Sparkles, Menu, X, ExternalLink, Beaker } from "lucide-react";
+import { LayoutDashboard, Users, BarChart3, Settings as Cog, LogOut, Sparkles, Menu, X, ExternalLink, Beaker, Kanban, UserCog, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "@/components/app/ThemeToggle";
+import NotificationsPopover from "@/components/app/NotificationsPopover";
 
-const nav = [
-  { to: "/app", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
-  { to: "/app/leads", label: "Leads", icon: Users, testId: "nav-leads" },
-  { to: "/app/analytics", label: "Analytics", icon: BarChart3, testId: "nav-analytics" },
-  { to: "/app/playground", label: "AI Playground", icon: Beaker, testId: "nav-playground" },
-  { to: "/app/settings", label: "Settings", icon: Cog, testId: "nav-settings" },
+// nav filtered by role
+const ALL_NAV = [
+  { to: "/app", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard", roles: ["admin", "sales_manager", "sdr", "viewer"] },
+  { to: "/app/leads", label: "Leads", icon: Users, testId: "nav-leads", roles: ["admin", "sales_manager", "sdr", "viewer"] },
+  { to: "/app/pipeline", label: "Pipeline", icon: Kanban, testId: "nav-pipeline", roles: ["admin", "sales_manager", "sdr", "viewer"] },
+  { to: "/app/analytics", label: "Analytics", icon: BarChart3, testId: "nav-analytics", roles: ["admin", "sales_manager", "sdr", "viewer"] },
+  { to: "/app/playground", label: "AI Playground", icon: Beaker, testId: "nav-playground", roles: ["admin", "sales_manager"] },
+  { to: "/app/team", label: "Team", icon: UserCog, testId: "nav-team", roles: ["admin", "sales_manager", "sdr", "viewer"] },
+  { to: "/app/audit", label: "Audit logs", icon: ShieldCheck, testId: "nav-audit", roles: ["admin", "sales_manager"] },
+  { to: "/app/settings", label: "Settings", icon: Cog, testId: "nav-settings", roles: ["admin", "sales_manager"] },
 ];
 
 export default function AppShell({ children }) {
@@ -19,7 +24,8 @@ export default function AppShell({ children }) {
   const loc = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const isActive = (to) => (to === "/app" ? loc.pathname === "/app" : loc.pathname.startsWith(to));
-
+  const role = user?.role || "admin";
+  const nav = ALL_NAV.filter((n) => n.roles.includes(role));
   const currentPage = nav.find((n) => isActive(n.to))?.label || "";
 
   const SidebarInner = (
@@ -133,14 +139,11 @@ export default function AppShell({ children }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <a
-              href={`/capture/${user?.email}`}
-              target="_blank"
-              rel="noreferrer"
-              className="hidden sm:inline-flex items-center gap-1.5 text-xs h-9 px-3 rounded-md border border-border bg-card hover:bg-accent transition-colors"
-            >
+            <a href={`/capture/${user?.email}`} target="_blank" rel="noreferrer"
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs h-9 px-3 rounded-md border border-border bg-card hover:bg-accent transition-colors">
               <ExternalLink className="h-3.5 w-3.5" /> Capture URL
             </a>
+            <NotificationsPopover />
             <ThemeToggle />
           </div>
         </header>

@@ -4,28 +4,42 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import {
   Loader2, Copy, RefreshCw, Trash2, Mail, Sparkles, CheckCircle2, ExternalLink,
-  PlugZap, Linkedin, Send, Clock, LoaderPinwheel, AlertTriangle, Brain
+  PlugZap, Linkedin, Send, Clock, LoaderPinwheel, AlertTriangle, Brain,
+  MessageSquare, Calendar, UserCheck
 } from "lucide-react";
 import { scoreColor, statusColor, timeAgo } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 const STATUSES = ["new", "qualifying", "qualified", "disqualified", "contacted", "converted"];
 
 export default function LeadDrawer({ leadId, onClose, onChanged }) {
+  const { user } = useAuth() || {};
   const [lead, setLead] = useState(null);
   const [decisions, setDecisions] = useState([]);
+  const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [regenLoading, setRegenLoading] = useState("");
   const [retrying, setRetrying] = useState(false);
+  const [noteText, setNoteText] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+  const [showMeeting, setShowMeeting] = useState(false);
+  const [meetingSlots, setMeetingSlots] = useState(null);
+  const [meetingBusy, setMeetingBusy] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
+  const [emailDraft, setEmailDraft] = useState({ subject: "", body: "" });
+  const [emailBusy, setEmailBusy] = useState(false);
   const open = !!leadId;
 
   const load = async () => {
     setLoading(true);
     try {
-      const [{ data }, { data: dec }] = await Promise.all([
+      const [{ data }, { data: dec }, { data: mem }] = await Promise.all([
         api.get(`/leads/${leadId}`),
         api.get(`/leads/${leadId}/decisions`),
+        api.get("/workspace/members"),
       ]);
-      setLead(data); setDecisions(dec);
+      setLead(data); setDecisions(dec); setMembers(mem);
+      setEmailDraft({ subject: data.outreach?.subject || "", body: data.outreach?.first_email || "" });
     } finally { setLoading(false); }
   };
 
@@ -83,6 +97,65 @@ export default function LeadDrawer({ leadId, onClose, onChanged }) {
   };
 
   const copy = (text) => { navigator.clipboard.writeText(text || ""); toast.success("Copied"); };
+
+  const addNote = async (e) => {
+    e.preventDefault();
+    if (!noteText.trim()) return;
+    setSavingNote(true);
+    try {
+      const { data } = await api.post(`/leads/${leadId}/notes`, { body: noteText });
+      setLead(data); setNoteText(""); toast.success("Note added");
+    } catch { toast.error("Failed to save note"); }
+    finally { setSavingNote(false); }
+  };
+
+  const assignTo = async (userId) => {
+    const { data } = await api.patch(`/leads/${leadId}/assign`, {
+      assigned_to: userId || null,
+      reason: userId ? "Manual assignment" : "Manually unassigned",
+    });
+    setLead(data); onChanged?.(); toast.success("Assignment updated");
+  };
+
+  const sendEmail = async (mode) => {
+    setEmailBusy(true);
+    try {
+      const payload = {
+        to: lead.email, subject: emailDraft.subject, body: emailDraft.body,
+        save_as_draft: mode === "draft",
+      };
+      const { data } = await api.post(`/leads/${leadId}/emails`, payload);
+      setLead(data); onChanged?.();
+      toast.success(mode === "draft" ? "Draft saved" : "Email sent");
+      setShowEmail(false);
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+    finally { setEmailBusy(false); }
+  };
+
+  const proposeMeeting = async () => {
+    setMeetingBusy(true);
+    try {
+      const { data } = await api.post(`/leads/${leadId}/meetings/propose`, { duration_min: 30 });
+      setMeetingSlots(data); setShowMeeting(true);
+    } catch { toast.error("Failed to propose"); }
+    finally { setMeetingBusy(false); }
+  };
+
+  const confirmMeeting = async (slot) => {
+    setMeetingBusy(true);
+    try {
+      const { data } = await api.post(`/leads/${leadId}/meetings`, {
+        title: meetingSlots.title_suggestion,
+        description: meetingSlots.description_suggestion,
+        start: slot.start,
+        duration_min: slot.duration_min,
+        attendee_emails: [lead.email],
+      });
+      setLead(data); onChanged?.(); setShowMeeting(false);
+      toast.success("Meeting scheduled");
+    } catch { toast.error("Failed to schedule"); }
+    finally { setMeetingBusy(false); }
+  };
 
   const proc = lead?.processing_status;
   const isProcessing = proc === "pending" || proc === "analyzing";
@@ -238,6 +311,148 @@ export default function LeadDrawer({ leadId, onClose, onChanged }) {
                 </OutreachBlock>
               </div>
             )}
+
+            {/* Assignment + quick actions */}
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-lg border border-border bg-card p-3">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                  <UserCheck className="h-3.5 w-3.5" /> ASSIGNED TO
+                </div>
+                <select value={lead.assigned_to || ""} onChange={(e) => assignTo(e.target.value || null)}
+                  data-testid="assign-select"
+                  className="w-full h-9 px-2 rounded-md border border-border bg-background text-sm">
+                  <option value="">Unassigned</option>
+                  {members.map((m) => <option key={m.user_id} value={m.user_id}>{m.full_name} · {m.role}</option>)}
+                </select>
+                {lead.assignment_reason && <div className="text-[10px] text-muted-foreground mt-1.5">{lead.assignment_reason}</div>}
+              </div>
+              <div className="rounded-lg border border-border bg-card p-3 flex flex-col justify-between">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                  <Calendar className="h-3.5 w-3.5" /> QUICK ACTIONS
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => setShowEmail(true)} data-testid="send-email-btn"
+                    className="text-xs inline-flex items-center gap-1 h-8 px-2 rounded-md border border-border hover:bg-accent transition-colors">
+                    <Mail className="h-3 w-3" /> Send email
+                  </button>
+                  <button onClick={proposeMeeting} disabled={meetingBusy} data-testid="book-meeting-btn"
+                    className="text-xs inline-flex items-center gap-1 h-8 px-2 rounded-md border border-border hover:bg-accent transition-colors">
+                    {meetingBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Calendar className="h-3 w-3" />} Book meeting
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Meeting slots dialog */}
+            {showMeeting && meetingSlots && (
+              <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-4" data-testid="meeting-slots">
+                <div className="text-xs uppercase tracking-widest font-bold text-primary mb-2">AI-recommended slots</div>
+                <div className="space-y-2">
+                  {meetingSlots.slots.map((s, i) => (
+                    <button key={i} onClick={() => confirmMeeting(s)} disabled={meetingBusy}
+                      className="w-full text-left rounded-md border border-border bg-background p-2.5 hover:border-primary/50 transition-colors text-sm">
+                      <div className="font-medium">{new Date(s.start).toLocaleString()}</div>
+                      <div className="text-xs text-muted-foreground">{s.duration_min} min</div>
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setShowMeeting(false)} className="mt-2 text-xs text-muted-foreground hover:underline">Cancel</button>
+              </div>
+            )}
+
+            {/* Email compose */}
+            {showEmail && (
+              <div className="mt-3 rounded-lg border border-border bg-card p-4" data-testid="email-compose">
+                <div className="text-xs uppercase tracking-widest font-bold text-primary mb-2">Send email · {lead.email}</div>
+                <input value={emailDraft.subject} onChange={(e) => setEmailDraft({ ...emailDraft, subject: e.target.value })}
+                  placeholder="Subject"
+                  className="w-full h-9 px-2.5 rounded-md border border-border bg-background field-focus text-sm mb-2" />
+                <textarea value={emailDraft.body} onChange={(e) => setEmailDraft({ ...emailDraft, body: e.target.value })}
+                  rows={6}
+                  className="w-full px-2.5 py-1.5 rounded-md border border-border bg-background field-focus text-sm resize-y" />
+                <div className="mt-2 flex items-center gap-2 justify-end">
+                  <button onClick={() => setShowEmail(false)} className="text-xs h-8 px-3 rounded-md hover:bg-accent transition-colors">Cancel</button>
+                  <button onClick={() => sendEmail("draft")} disabled={emailBusy}
+                    className="text-xs h-8 px-3 rounded-md border border-border hover:bg-accent transition-colors">Save draft</button>
+                  <button onClick={() => sendEmail("send")} disabled={emailBusy} data-testid="email-send-now"
+                    className="text-xs h-8 px-3 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors inline-flex items-center gap-1">
+                    {emailBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />} Send now
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Email history */}
+            {lead.emails && lead.emails.length > 0 && (
+              <div className="mt-6" data-testid="email-history">
+                <div className="overline mb-2 flex items-center gap-2"><Mail className="h-3 w-3" /> Email history</div>
+                <ul className="space-y-2">
+                  {lead.emails.map((em) => (
+                    <li key={em.id} className="rounded-md border border-border bg-card p-3 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium truncate">{em.subject}</span>
+                        <span className={`text-[10px] uppercase tracking-widest font-semibold px-1.5 py-0.5 rounded-md border ${
+                          em.status === "sent" || em.status === "delivered" ? "border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300"
+                          : em.status === "opened" || em.status === "clicked" ? "border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300"
+                          : em.status === "draft" ? "border-border bg-muted text-muted-foreground"
+                          : "border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300"
+                        }`}>{em.status}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">To: {em.to} · {timeAgo(em.sent_at || em.created_at)}</div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Meetings */}
+            {lead.meetings && lead.meetings.length > 0 && (
+              <div className="mt-6" data-testid="meeting-history">
+                <div className="overline mb-2 flex items-center gap-2"><Calendar className="h-3 w-3" /> Meetings</div>
+                <ul className="space-y-2">
+                  {lead.meetings.map((m) => (
+                    <li key={m.id} className="rounded-md border border-border bg-card p-3 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium truncate">{m.title}</span>
+                        <span className="text-[10px] uppercase tracking-widest font-semibold px-1.5 py-0.5 rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">{m.status}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{new Date(m.start).toLocaleString()}</div>
+                      {m.gcal_template_url && (
+                        <a href={m.gcal_template_url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                          <ExternalLink className="h-3 w-3" /> Add to Google Calendar
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Notes */}
+            <div className="mt-6" data-testid="notes-section">
+              <div className="overline mb-2 flex items-center gap-2"><MessageSquare className="h-3 w-3" /> Notes & comments</div>
+              <form onSubmit={addNote} className="flex items-start gap-2 mb-3">
+                <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)}
+                  placeholder="Add a note. Use @teammate@company.com to mention."
+                  rows={2} data-testid="note-input"
+                  className="flex-1 px-2.5 py-1.5 rounded-md border border-border bg-background field-focus text-sm resize-y" />
+                <button disabled={savingNote} data-testid="note-submit"
+                  className="h-9 px-3 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors">
+                  {savingNote ? <Loader2 className="h-3 w-3 animate-spin" /> : "Post"}
+                </button>
+              </form>
+              <ul className="space-y-2">
+                {[...(lead.notes || [])].reverse().map((n) => (
+                  <li key={n.id} className="rounded-md border border-border bg-card p-3 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-xs">{n.author_name}</span>
+                      <span className="text-[10px] text-muted-foreground">{timeAgo(n.at)}</span>
+                    </div>
+                    <div className="mt-1 text-foreground/90 whitespace-pre-wrap">{n.body}</div>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
             {/* Status */}
             <div className="mt-6">

@@ -1,23 +1,26 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
+import api from "@/lib/api";
 import { toast } from "sonner";
 import { Sparkles, Loader2, ArrowRight } from "lucide-react";
 
 export default function Signup() {
-  const { signup } = useAuth();
   const nav = useNavigate();
+  const [sp] = useSearchParams();
+  const inviteToken = sp.get("invite");
+  const { setUser } = useAuth() || {};
   const [form, setForm] = useState({ full_name: "", email: "", password: "" });
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   const submit = async (e) => {
-    e.preventDefault();
-    setBusy(true);
+    e.preventDefault(); setBusy(true);
     try {
-      await signup(form.email, form.password, form.full_name);
-      toast.success("Workspace created");
-      nav("/app");
+      const { data } = await api.post("/auth/signup", { ...form, invite_token: inviteToken || undefined });
+      localStorage.setItem("sdr_token", data.token);
+      localStorage.setItem("sdr_user", JSON.stringify(data.user));
+      window.location.href = "/app";
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Signup failed");
     } finally { setBusy(false); }
@@ -32,8 +35,12 @@ export default function Signup() {
             <span className="font-display font-bold text-lg">SDR Agent</span>
           </div>
           <div>
-            <h2 className="font-display text-2xl font-semibold tracking-tight">Create your workspace</h2>
-            <p className="text-sm text-muted-foreground mt-1">50 free lead qualifications, no card.</p>
+            <h2 className="font-display text-2xl font-semibold tracking-tight">
+              {inviteToken ? "Join your team" : "Create your workspace"}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {inviteToken ? "You've been invited to an existing workspace." : "50 free lead qualifications, no card."}
+            </p>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Full name</label>
