@@ -1068,3 +1068,12 @@ app.add_middleware(
 
 @app.on_event("shutdown")
 async def _shutdown(): client.close()
+from fastapi import FastAPI
+
+@app.get("/")
+def home():
+    return {"message": "AI SDR Agent is running"}
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
