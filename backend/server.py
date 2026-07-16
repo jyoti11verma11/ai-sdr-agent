@@ -1077,11 +1077,11 @@ def home():
 @app.get("/health")
 def health():
     return {"status": "ok"}
-    @app.get("/")
+@app.get("/")
 def root():
     return {"message": "AI SDR Agent is running!"}
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok"}    
