@@ -17,7 +17,11 @@ export default function Signup() {
   const submit = async (e) => {
     e.preventDefault(); setBusy(true);
     try {
-      const { data } = await api.post("/auth/signup", { ...form, invite_token: inviteToken || undefined });
+     const { data } = await api.post("/auth/signup", {
+  full_name: form.full_name,
+  email: form.email,
+  password: form.password
+});
       localStorage.setItem("sdr_token", data.token);
       localStorage.setItem("sdr_user", JSON.stringify(data.user));
       window.location.href = "/app";
